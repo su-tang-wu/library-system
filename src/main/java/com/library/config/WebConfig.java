@@ -9,7 +9,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:8080") // 允许当前前端地址，。。。。。。
+                .allowedOrigins("http://localhost:8080") // 允许当前前端地址
                 .allowedMethods("GET", "POST", "PUT", "DELETE")
                 .allowCredentials(true); // 允许携带Cookie（Session验证）
     }
