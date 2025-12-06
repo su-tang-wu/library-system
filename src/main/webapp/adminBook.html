@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>图书管理</title>
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>图书管理</h2>
+        <button class="btn btn-danger" onclick="logout()">退出登录</button>
+    </div>
+    <button class="btn btn-success mb-3" onclick="showAddModal()">新增图书</button>
+
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>书名</th>
+            <th>作者</th>
+            <th>出版社</th>
+            <th>库存</th>
+            <th>分类</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="bookTable"></tbody>
+    </table>
+</div>
+
+<!-- 新增/编辑模态框 -->
+<div class="modal fade" id="bookModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">新增图书</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="bookId">
+                <div class="mb-3">
+                    <label class="form-label">书名 *</label>
+                    <input type="text" id="name" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">作者 *</label>
+                    <input type="text" id="author" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">出版社</label>
+                    <input type="text" id="publisher" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">库存 *</label>
+                    <input type="number" id="stock" class="form-control" min="0" value="0">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">分类</label>
+                    <input type="text" id="category" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveBook()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const bookModal = new bootstrap.Modal(document.getElementById('bookModal'));
+
+    $(function() {
+        checkLogin().then(loadBooks).catch(() => loadBooks());
+    });
+
+    function checkLogin() {
+        return new Promise((resolve, reject) => {
+            const token = getUrlParam('token') || localStorage.getItem('token');
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+            $.ajax({
+                url: "/api/user/check",
+                type: "GET",
+                headers: headers,
+                xhrFields: { withCredentials: true },
+                success: resolve,
+                error: reject
+            });
+        });
+    }
+
+    function loadBooks() {
+        const token = getUrlParam('token') || localStorage.getItem('token');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        $("#bookTable").html('<tr><td colspan="7" class="text-center">加载中...</td></tr>');
+        $.ajax({
+            url: "/api/books",
+            type: "GET",
+            headers: headers,
+            success: function(res) {
+                const books = Array.isArray(res) ? res : (res.data || []);
+                let html = "";
+                if (books.length) {
+                    books.forEach(book => {
+                        html += `
+                            <tr>
+                                <td>${book.id ?? '-'}</td>
+                                <td>${book.name ?? '-'}</td>
+                                <td>${book.author ?? '-'}</td>
+                                <td>${book.publisher ?? '-'}</td>
+                                <td>${book.stock ?? 0}</td>
+                                <td>${book.category ?? '-'}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning" onclick="showEditModal(${book.id})">编辑</button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteBook(${book.id})">删除</button>
+                                </td>
+                            </tr>`;
+                    });
+                } else {
+                    html = '<tr><td colspan="7" class="text-center">暂无图书数据</td></tr>';
+                }
+                $("#bookTable").html(html);
+            },
+            error: function(xhr) {
+                let msg = "加载图书失败：";
+                if (xhr.status === 404) msg += "接口不存在";
+                else if (xhr.status === 401) msg += "未授权";
+                else if (xhr.status === 500) msg += "服务器错误";
+                else msg += `状态码 ${xhr.status}`;
+                $("#bookTable").html(`<tr><td colspan="7" class="text-danger text-center">${msg}</td></tr>`);
+            }
+        });
+    }
+
+    function showAddModal() {
+        $("#modalTitle").text("新增图书");
+        $("#bookId").val("");
+        $("#name").val("");
+        $("#author").val("");
+        $("#publisher").val("");
+        $("#stock").val(0);
+        $("#category").val("");
+        bookModal.show();
+    }
+
+    function showEditModal(bookId) {
+        const token = getUrlParam('token') || localStorage.getItem('token');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        $.ajax({
+            url: `/api/books/${bookId}`,
+            type: "GET",
+            headers: headers,
+            success: function(res) {
+                /* =====  兼容 {data:{}} 或直接对象 ===== */
+                const book = res.data || res;
+                console.log("回显图书数据:", book);
+
+                $("#modalTitle").text("编辑图书");
+                $("#bookId").val(book.id);
+                $("#name").val(book.name ?? "");
+                $("#author").val(book.author ?? "");
+                $("#publisher").val(book.publisher ?? "");
+                $("#stock").val(book.stock ?? 0);
+                $("#category").val(book.category ?? "");
+
+                bookModal.show();   // 赋值完成后再弹出
+            },
+            error: function() {
+                alert("获取图书详情失败");
+            }
+        });
+    }
+
+    function saveBook() {
+        const bookId = $("#bookId").val();
+        const book = {
+            id: bookId || undefined,
+            name: $("#name").val().trim(),
+            author: $("#author").val().trim(),
+            publisher: $("#publisher").val().trim(),
+            stock: parseInt($("#stock").val()) || 0,
+            category: $("#category").val().trim()
+        };
+        if (!book.name || !book.author) {
+            alert("书名和作者为必填项");
+            return;
+        }
+        const token = getUrlParam('token') || localStorage.getItem('token');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        let url = "/api/books";
+        let method = "POST";
+        if (bookId) {
+            url += `/${bookId}`;
+            method = "PUT";
+        }
+        $.ajax({
+            url: url,
+            type: method,
+            contentType: "application/json",
+            data: JSON.stringify(book),
+            headers: headers,
+            success: function() {
+                bookModal.hide();
+                loadBooks();
+                alert(bookId ? "修改成功" : "新增成功");
+            },
+            error: function() {
+                alert(bookId ? "修改失败" : "新增失败");
+            }
+        });
+    }
+
+    function deleteBook(id) {
+        if (!confirm("确定删除？")) return;
+        const token = getUrlParam('token') || localStorage.getItem('token');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        $.ajax({
+            url: `/api/books/${id}`,
+            type: "DELETE",
+            headers: headers,
+            success: function() {
+                loadBooks();
+                alert("删除成功");
+            },
+            error: function() {
+                alert("删除失败");
+            }
+        });
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        window.location.href = "login.html";
+    }
+
+    function getUrlParam(name) {
+        const reg = new RegExp(`(^|&)${name}=([^&]*)(&|$)`);
+        const r = window.location.search.substr(1).match(reg);
+        return r ? decodeURIComponent(r[2]) : null;
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.library.mapper.BorrowMapper">
+    <insert id="add">
+        insert into borrow(user_id, book_id, borrow_time)
+        values(#{userId}, #{bookId}, now())
+    </insert>
+    <update id="updateReturnTime">
+        update borrow set return_time = now() where id = #{id}
+    </update>
+    <select id="findByUserId" resultType="com.library.entity.Borrow">
+        select * from borrow where user_id = #{userId}
+    </select>
+</mapper>
