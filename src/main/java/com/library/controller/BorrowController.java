@@ -26,7 +26,7 @@ public class BorrowController {
         boolean success = borrowService.borrowBook(user.getId(), bookId);
         result.put("success", success);
         result.put("msg", success ? "借阅成功" : "库存不足");
-        return result;
+        return result;  //返回结果
     }
 
     @PutMapping("/{borrowId}/{bookId}")
